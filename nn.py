@@ -36,3 +36,5 @@ def res_block(name, x, num_layer=2, num_filter=64, filter_size=[3, 3], padding='
         for i in range(num_layer):
             c = res_layer('layer'+str(i), c, filter_size, padding, reg, activation_fn)
     return c
+
+add a line
