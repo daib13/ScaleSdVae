@@ -11,3 +11,4 @@ with tf.variable_scope('outer_loop2'):
     y2 = res_block('weight', x)
 
 print('...')
+add a line
