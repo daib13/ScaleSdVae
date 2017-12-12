@@ -1,2 +1,11 @@
 \.vscode/*
 *pyc
+*bin
+*graph*
+*model*
+*sample*
+*mat
+*csv
+*fig
+*jpg
+1RegularizationMechanism/transfer.py
