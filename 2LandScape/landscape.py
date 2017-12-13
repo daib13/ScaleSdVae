@@ -4,6 +4,7 @@ import os
 from copy import deepcopy
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
 
 
 class Landscape:
@@ -53,7 +54,8 @@ class Landscape:
         with tf.name_scope('syn_net'):
 #            self.seed = tf.random_normal(
 #                [self.batch_size, self.z_dim], 0.0, 1.0, tf.float32)
-            self.seed = tf.placeholder(tf.float32, [self.batch_size, self.z_dim], 'seed')
+            self.seed = tf.placeholder(tf.float32, [None, self.z_dim], 'seed')
+            self.batch_size = tf.cast(tf.shape(self.seed)[0], tf.int32)
             previous_tensor = self.seed
             for i in range(self.decoder_num):
                 with tf.name_scope('layer' + str(i)):
@@ -154,11 +156,11 @@ class Landscape:
     def __build_loss(self):
         with tf.name_scope('loss'):
             self.kl_loss = tf.reduce_sum(tf.square(
-                self.mu_z) + tf.square(self.sd_z) - 2.0 * self.logsd_z - 1.0) / self.batch_size / 2.0
+                self.mu_z) + tf.square(self.sd_z) - 2.0 * self.logsd_z - 1.0) / tf.cast(self.batch_size, tf.float32) / 2.0
             self.duplicate_x = tf.reshape(tf.tile(tf.reshape(self.x, [self.batch_size, 1, self.x_dim]), [
                 1, self.sample_num, 1]), [self.batch_size * self.sample_num, self.x_dim])
             self.gen_loss = tf.reduce_sum(tf.square(
-                self.duplicate_x - self.x_hat) / self.gamma + self.log_gamma) / self.batch_size / self.sample_num / 2.0
+                self.duplicate_x - self.x_hat) / self.gamma + self.log_gamma) / tf.cast(self.batch_size, tf.float32) / self.sample_num / 2.0
             self.loss = self.kl_loss + self.gen_loss
 
     def __build_test_encoder(self):
@@ -214,11 +216,11 @@ class Landscape:
     def __build_test_loss(self):
         with tf.name_scope('loss_test'):
             kl_loss = tf.reduce_sum(tf.square(self.mu_z_test) + tf.square(
-                self.sd_z_test) - 2.0 * self.logsd_z_test - 1.0) / self.batch_size / 2.0
+                self.sd_z_test) - 2.0 * self.logsd_z_test - 1.0) / tf.cast(self.batch_size, tf.float32) / 2.0
             distance = tf.square(self.duplicate_x - self.x_hat_test)
             gamma = tf.reduce_mean(distance)
             gen_loss = tf.reduce_sum(
-                distance / self.gamma + tf.log(gamma)) / self.batch_size / self.sample_num / 2.0
+                distance / self.gamma + tf.log(gamma)) / tf.cast(self.batch_size, tf.float32) / self.sample_num / 2.0
             self.loss_test = kl_loss + gen_loss
 
     def __build_summary(self):
@@ -239,12 +241,12 @@ class Landscape:
                     self.lr).minimize(self.loss, self.global_step)
 
 
-def main():
+def main(num_layer):
     x_dim = 400
     z_dim = 20
     kappa = 30
-    encoder_dim = [200, 200, 200]
-    decoder_dim = [200, 200, 200]
+    encoder_dim = np.ones([num_layer], np.int32) * 200
+    decoder_dim = np.ones([num_layer], np.int32) * 200
     sample_num = 20
     iteration_num = 100000
     learning_rate = 0.001
@@ -259,15 +261,16 @@ def main():
             os.mkdir('model')
 
         sess.run(tf.global_variables_initializer())
-#        for i in range(iteration_num):
-#            batch_loss, _, summary = sess.run(
-#                [model.loss, model.optimizer, model.summary], feed_dict={model.lr: learning_rate})
-#            writer.add_summary(summary, model.global_step.eval(sess))
-#            if i % 100 == 99:
-#                print('Iter = {0}, loss = {1}.'.format(i, batch_loss))
+        for i in range(iteration_num):
+            batch_loss, _, summary = sess.run(
+                [model.loss, model.optimizer, model.summary], feed_dict={model.lr: learning_rate,
+                                                                         model.seed: np.random.normal(0.0, 1.0, [100, z_dim])})
+            writer.add_summary(summary, model.global_step.eval(sess))
+            if i % 100 == 99:
+                print('Iter = {0}, loss = {1}.'.format(i, batch_loss))
 
-#        saver.save(sess, 'model/model.ckpt')
-        saver.restore(sess, 'model/model.ckpt')
+        saver.save(sess, 'model/model.ckpt')
+#        saver.restore(sess, 'model/model.ckpt')
 
         w_mu = model.w_mu.eval(sess)
         b_mu = model.b_mu.eval(sess)
@@ -278,7 +281,7 @@ def main():
         scale = np.arange(-0.5, 1.51, 0.05)
         num_test = scale.shape[0]
         loss = np.zeros([kappa, num_test])
-        seed = np.random.normal(0.0, 1.0, [100, z_dim])
+        seed = np.random.normal(0.0, 1.0, [1000, z_dim])
         for i in range(kappa):
             for j in range(num_test):
                 w_mu_test = deepcopy(w_mu)
@@ -299,11 +302,11 @@ def main():
                                                                   model.b_sd_test: b_sd_test,
                                                                   model.w_o_test: w_o_test,
                                                                   model.seed: seed})
-                
-            plt.plot(scale, loss[i, :])
-            plt.show()
+#            plt.plot(scale, loss[i, :])
+#            plt.show()
+        scipy.io.savemat('loss.mat', {'loss': loss})
 
 
 if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = '5'
-    main()
+    main(int(sys.argv[1]))

@@ -2,6 +2,8 @@ import tensorflow as tf
 import os
 import numpy as np
 import pickle
+import scipy.io
+import sys
 
 
 class VaeManifold:
@@ -132,6 +134,8 @@ class VaeManifold:
             with tf.name_scope('x_hat'):
                 self.x_hat = tf.matmul(
                     previous_tensor, self.weights_dec['x_hat_w']) + self.weights_dec['x_hat_b']
+                if self.decoder_num == 0:
+                    self.h_d = self.x_hat
             with tf.name_scope('gamma'):
                 self.gamma = tf.exp(self.log_gamma)
 
@@ -150,7 +154,10 @@ class VaeManifold:
             self.gradient = dict()
             dh_d = tf.gradients(self.loss, self.h_d)
             self.gradient['h_d'] = tf.reduce_sum(tf.square(dh_d[0])) / self.batch_size / self.sample_num
-            dw_o = tf.gradients(self.loss, self.weights_dec['layer0_w'])
+            if self.decoder_num == 0:
+                dw_o = tf.gradients(self.loss, self.weights_dec['x_hat_w'])
+            else:
+                dw_o = tf.gradients(self.loss, self.weights_dec['layer0_w'])
             self.gradient['w_o'] = tf.reshape(tf.reduce_sum(tf.square(dw_o[0]), 1), [1, -1])
             dz = tf.gradients(self.loss, self.z)
             self.gradient['z'] = tf.reshape(tf.reduce_mean(tf.square(dz[0]), 0), [1, -1])
@@ -163,13 +170,6 @@ class VaeManifold:
             tf.summary.scalar('gamma', self.gamma)
             self.sd_z_mean = tf.reshape(tf.reduce_mean(self.sd_z, 0), [1, -1])
             self.wo_norm = tf.reshape(tf.reduce_sum(tf.square(self.weights_dec['layer0_w']), 1), [1, -1])
-#            self.sd_z_mean_split = tf.split(self.sd_z_mean, self.kappa)
-#            w_column = tf.split(self.weights_dec['layer0_w'], self.kappa)
-#            self.w_norm = []
-#            for i in range(self.kappa):
-#                self.w_norm.append(tf.reduce_sum(tf.square(w_column[i])))
-#                tf.summary.scalar('w' + str(i), self.w_norm[i])
-#                tf.summary.scalar('sd' + str(i), tf.reshape(self.sd_z_mean_split[i], []))
             self.summary = tf.summary.merge_all()
 
     def __build_optimizer(self):
@@ -188,12 +188,12 @@ def write_to_file(x, filename):
     fid.close()
 
 
-def main():
+def main(num_layer):
     x_dim = 400
     z_dim = 20
     kappa = 30
-    encoder_dim = [200, 200, 200]
-    decoder_dim = [200, 200, 200]
+    encoder_dim = np.ones([num_layer], np.int32) * 200
+    decoder_dim = np.ones([num_layer], np.int32) * 200
     sample_num = 20
     iteration_num = 100000
     learning_rate = 0.001
@@ -236,14 +236,9 @@ def main():
     w_o_norm = np.concatenate(w_o_norm, 0)
     sd_z_mean = np.concatenate(sd_z_mean, 0)
 
-    write_to_file(dh_d, 'dh_d.bin')
-    write_to_file(dw_o, 'dw_o.bin')
-    write_to_file(dz, 'dz.bin')
-    write_to_file(w_o_norm, 'w_o_norm.bin')
-    write_to_file(sd_z_mean, 'sd_z_mean.bin')
-    write_to_file(loss, 'loss.bin')
+    scipy.io.savemat('data.mat', {'dh_d': dh_d, 'dw_o': dw_o, 'dz': dz, 'w_o': w_o_norm, 'sd_z': sd_z_mean, 'loss': loss})
 
 
 if __name__ == '__main__':
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-    main()
+    os.environ['CUDA_VISIBLE_DEVICES'] = sys.argv[2]
+    main(int(sys.argv[1]))
