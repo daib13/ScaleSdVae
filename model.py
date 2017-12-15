@@ -54,6 +54,7 @@ class ConvVae:
                     self.logsd_z = dense(
                         'logsd_z_w', feature_map, self.latent_dim, self.reg)
                     self.sd_z = tf.exp(self.logsd_z)
+                    self.mean_sd_z = tf.reduce_mean(self.sd_z, 0)
 
     def __build_decoder(self):
         with tf.name_scope('sample'):
@@ -102,7 +103,7 @@ class ConvVae:
         tf.summary.scalar('loss', self.loss)
         tf.summary.image('recon', self.x_hat)
         tf.summary.scalar('gamma', self.gamma)
-        tf.summary.histogram('sd_z', self.sd_z)
+        tf.summary.histogram('mean_sd_z', self.mean_sd_z)
         self.summary = tf.summary.merge_all()
 
     def __build_optimizer(self):
