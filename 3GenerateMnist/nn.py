@@ -121,12 +121,12 @@ class VaeSimple:
             self.logit_z = duplicate_logsd_z + \
                 tf.square(self.noise) / 2 - tf.square(self.z) / 2
             self.logit = tf.reshape(tf.reduce_sum(
-                self.logit_z, -1) + tf.reduce_sum(self.logit_x, -1), [self.batch_size, self.sample_num])
+                self.logit_z, -1) + tf.reduce_sum(-self.logit_x, -1), [self.batch_size, self.sample_num])
             self.logit_max = tf.reduce_max(self.logit, 1)
             self.logit_max_tile = tf.tile(tf.reshape(
                 self.logit_max, [self.batch_size, 1]), [1, self.sample_num])
             self.res = tf.reduce_sum(
-                tf.exp(self.logit - self.logit_max_tile), 1)
+                tf.exp(self.logit - self.logit_max_tile), 1) / self.sample_num
             self.nll = - self.logit_max - tf.log(self.res)
 
     def partial_train(self, x, lr, sess, writer):
@@ -252,10 +252,10 @@ class VaeScale(VaeSimple):
             self.logit_z = duplicate_logsd_z + \
                 tf.square(self.noise) / 2 - tf.square(self.z) / 2
             self.logit = tf.reshape(tf.reduce_sum(
-                self.logit_z, -1) + tf.reduce_sum(self.logit_x, -1), [self.batch_size, self.sample_num])
+                self.logit_z, -1) + tf.reduce_sum(-self.logit_x, -1), [self.batch_size, self.sample_num])
             self.logit_max = tf.reduce_max(self.logit, 1)
             self.logit_max_tile = tf.tile(tf.reshape(
                 self.logit_max, [self.batch_size, 1]), [1, self.sample_num])
             self.res = tf.reduce_sum(
-                tf.exp(self.logit - self.logit_max_tile), 1)
+                tf.exp(self.logit - self.logit_max_tile), 1) / self.sample_num
             self.nll = - self.logit_max - tf.log(self.res)

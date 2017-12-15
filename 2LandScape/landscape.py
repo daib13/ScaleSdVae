@@ -5,6 +5,7 @@ from copy import deepcopy
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
+import scipy.io
 
 
 class Landscape:
@@ -260,17 +261,17 @@ def main(num_layer):
         if not os.path.exists('model'):
             os.mkdir('model')
 
-        sess.run(tf.global_variables_initializer())
-        for i in range(iteration_num):
-            batch_loss, _, summary = sess.run(
-                [model.loss, model.optimizer, model.summary], feed_dict={model.lr: learning_rate,
-                                                                         model.seed: np.random.normal(0.0, 1.0, [100, z_dim])})
-            writer.add_summary(summary, model.global_step.eval(sess))
-            if i % 100 == 99:
-                print('Iter = {0}, loss = {1}.'.format(i, batch_loss))
+#        sess.run(tf.global_variables_initializer())
+#        for i in range(iteration_num):
+#            batch_loss, _, summary = sess.run(
+#                [model.loss, model.optimizer, model.summary], feed_dict={model.lr: learning_rate,
+#                                                                         model.seed: np.random.normal(0.0, 1.0, [100, z_dim])})
+#            writer.add_summary(summary, model.global_step.eval(sess))
+#            if i % 100 == 99:
+#                print('Iter = {0}, loss = {1}.'.format(i, batch_loss))
 
-        saver.save(sess, 'model/model.ckpt')
-#        saver.restore(sess, 'model/model.ckpt')
+#        saver.save(sess, 'model/model.ckpt')
+        saver.restore(sess, 'model/model.ckpt')
 
         w_mu = model.w_mu.eval(sess)
         b_mu = model.b_mu.eval(sess)

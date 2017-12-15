@@ -54,13 +54,14 @@ class VaeManifold:
                     previous_tensor = tf.matmul(
                         previous_tensor, self.weights_syn['layer' + str(i) + '_w']) + self.weights_syn['layer' + str(i) + '_b']
                     previous_tensor = tf.nn.relu(previous_tensor)
-            with tf.name_scope('x'):
-                self.x = tf.matmul(
+            with tf.name_scope('x_gen'):
+                self.x_gen = tf.matmul(
                     previous_tensor, self.weights_syn['x_hat_w']) + self.weights_syn['x_hat_b']
 
     def __build_encoder(self):
         self.weights_enc = dict()
         previous_dim = self.x_dim
+        self.x = tf.placeholder(tf.float32, [self.batch_size, self.x_dim], 'x')
         with tf.variable_scope('encoder_weight'):
             for i in range(self.encoder_num):
                 with tf.variable_scope('layer' + str(i)):
@@ -169,7 +170,10 @@ class VaeManifold:
             tf.summary.scalar('loss', self.loss)
             tf.summary.scalar('gamma', self.gamma)
             self.sd_z_mean = tf.reshape(tf.reduce_mean(self.sd_z, 0), [1, -1])
-            self.wo_norm = tf.reshape(tf.reduce_sum(tf.square(self.weights_dec['layer0_w']), 1), [1, -1])
+            if self.decoder_num == 0:
+                self.wo_norm = tf.reshape(tf.reduce_sum(tf.square(self.weights_dec['x_hat_w']), 1), [1, -1])
+            else:
+                self.wo_norm = tf.reshape(tf.reduce_sum(tf.square(self.weights_dec['layer0_w']), 1), [1, -1])
             self.summary = tf.summary.merge_all()
 
     def __build_optimizer(self):
@@ -195,11 +199,15 @@ def main(num_layer):
     encoder_dim = np.ones([num_layer], np.int32) * 200
     decoder_dim = np.ones([num_layer], np.int32) * 200
     sample_num = 20
-    iteration_num = 100000
+    epoch_num = 100
     learning_rate = 0.001
 
     model = VaeManifold(x_dim, z_dim, kappa, encoder_dim,
                         decoder_dim, sample_num)
+
+    fid = open('../x.bin', 'rb')
+    x = pickle.load(fid)
+    fid.close()
 
     dh_d = []
     dw_o = []
@@ -214,20 +222,25 @@ def main(num_layer):
             os.mkdir('model')
 
         sess.run(tf.global_variables_initializer())
-        for i in range(iteration_num):
-            gradient, batch_w_o_norm, batch_sd_z_mean, batch_loss, _, summary = sess.run(
-                [model.gradient, model.wo_norm, model.sd_z_mean, model.loss, model.optimizer, model.summary], feed_dict={model.lr: learning_rate})
-            writer.add_summary(summary, model.global_step.eval(sess))
-            if i % 100 == 99:
-                print('Iter = {0}, loss = {1}.'.format(i, batch_loss))
+        for epoch in range(epoch_num):
+            total_loss = 0
+            iteration_per_epoch = int(x.shape[0]/100)
+            for i in range(iteration_per_epoch):
+                gradient, batch_w_o_norm, batch_sd_z_mean, batch_loss, _, summary = sess.run(
+                    [model.gradient, model.wo_norm, model.sd_z_mean, model.loss, model.optimizer, model.summary], 
+                    feed_dict={model.lr: learning_rate, model.x: x[i*100:(i+1)*100, :]})
+                writer.add_summary(summary, model.global_step.eval(sess))
+                total_loss += batch_loss
 
-            if i % 10 == 0:
-                dh_d.append(gradient['h_d'])
-                dw_o.append(gradient['w_o'])
-                dz.append(gradient['z'])
-                w_o_norm.append(batch_w_o_norm)
-                sd_z_mean.append(batch_sd_z_mean)
-                loss.append(batch_loss)
+                if i % 10 == 0:
+                    dh_d.append(gradient['h_d'])
+                    dw_o.append(gradient['w_o'])
+                    dz.append(gradient['z'])
+                    w_o_norm.append(batch_w_o_norm)
+                    sd_z_mean.append(batch_sd_z_mean)
+                    loss.append(batch_loss)
+            total_loss /= iteration_per_epoch
+            print('Epoch = {0}, loss = {1}.'.format(epoch, total_loss))
 
         saver.save(sess, 'model/model.ckpt')
 
