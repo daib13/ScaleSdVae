@@ -2,7 +2,7 @@
 *pyc
 *bin
 *graph*
-*model*
+*model/*
 *sample*
 *mat
 *csv
@@ -10,3 +10,5 @@
 *jpg
 1RegularizationMechanism/transfer.py
 *experiment*
+*checkpoint
+*ckpt*
