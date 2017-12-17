@@ -1,6 +1,9 @@
 import numpy as np
 import os
 import pickle
+from os import listdir
+from os.path import isfile, join
+import matplotlib.image as mpimg
 
 
 def load_CIFAR_batch(filename):
@@ -66,3 +69,17 @@ def shuffle_data(x, y=None):
         return x, y
     else:
         return x
+
+
+def load_img_from_folder(folder_name, height=128, width=128, channel=3):
+    onlyfiles = [join(folder_name, f) for f in listdir(folder_name) if isfile(join(folder_name, f))]
+    x = []
+    for i in range(len(onlyfiles)):
+        img = mpimg.imread(onlyfiles[i])
+        assert len(img.shape) == 3
+        assert img.shape[0] == height
+        assert img.shape[1] == width
+        assert img.shape[2] == channel
+        x.append(np.reshape(img, [1, height, width, channel]))
+    x = np.concatenate(x, 0) / 255.0
+    return x
