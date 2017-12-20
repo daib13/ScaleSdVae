@@ -8,7 +8,7 @@ def gaussian_sample(name, mu, sd):
     with tf.name_scope(name):
         epsilon = tf.random_normal(tf.shape(mu), name='epsilon')
         z = tf.add(tf.multiply(sd, epsilon), mu, 'z')
-    return z
+    return epsilon, z
 
 
 def calc_gen_loss(name, x, x_hat, gamma, log_gamma):
@@ -41,14 +41,16 @@ class VaeNet:
         with tf.name_scope('input'):
             self.x = tf.placeholder(tf.float32, [None, 128, 128, 3], 'x')
             self.batch_size = tf.cast(tf.shape(self.x, out_type=tf.int32)[0], tf.float32, 'batch_size')
-            self.phase = tf.placeholder(tf.bool, [], 'phase')
-        self.mu_z, self.logsd_z, self.sd_z = encoder_googlenet('encoder', self.x, self.phase, latent_dim, self.reg)
+        self.mu_z, self.logsd_z, self.sd_z = encoder_googlenet('encoder', self.x, self.is_train, latent_dim, self.reg)
         if self.variational:
-            self.z = gaussian_sample('sample', self.mu_z, self.sd_z)
+            self.epsilon, self.z = gaussian_sample('sample', self.mu_z, self.sd_z)
+            if is_train == True:
+                input_to_decoder = self.z
+            else:
+                input_to_decoder = self.epsilon
         else:
-            self.z = self.mu_z
-#        self.x_hat = decoder('decoder', self.z, self.phase, self.shortcut, self.reg, self.layer_per_scale)
-        self.x_hat = decoder_simple1('decoder', self.z, self.phase, self.shortcut, self.reg)
+            input_to_decoder = self.mu_z
+        self.x_hat = decoder_simple1('decoder', input_to_decoder, self.is_train, self.shortcut, self.reg)
         with tf.name_scope('gamma'):
             self.log_gamma = tf.get_variable('log_gamma', [], tf.float32, tf.constant_initializer(init_log_gamma), trainable=log_gamma_trainable)
             self.gamma = tf.exp(self.log_gamma, 'gamma')
@@ -57,9 +59,10 @@ class VaeNet:
             self.gen_loss = tf.divide(tf.reduce_sum(gen_loss), self.batch_size, 'gen_loss_norm')
             self.l2_distance = tf.divide(tf.reduce_sum(l2_distance), self.batch_size, 'l2_distance')
             self.loss = self.gen_loss
+            self.beta = tf.placeholder(tf.float32, [], 'beta')
             if self.variational:
                 self.kl_loss = tf.divide(tf.reduce_sum(calc_kl_loss('kl_loss', self.mu_z, self.logsd_z, self.sd_z)), self.batch_size, 'kl_loss_norm')
-                self.loss = tf.add(self.kl_loss, self.loss)
+                self.loss = tf.add(self.beta * self.kl_loss, self.loss)
                 self.loss = tf.add(self.log_gamma * self.log_gamma_decay, self.loss, 'loss')
         with tf.name_scope('summary'):
             tf.summary.scalar('total_loss', self.loss)
@@ -77,14 +80,12 @@ class VaeNet:
             self.global_step = tf.get_variable('global_step', [], tf.float32, tf.zeros_initializer(), trainable=False)
             self.optimizer = tf.train.AdamOptimizer(self.lr).minimize(self.loss, self.global_step)
 
-    def partial_train(self, x, lr, sess, writer, record=True):
-        mu_z, logsd_z, sd_z, loss, _, summary = sess.run([self.mu_z, self.logsd_z, self.sd_z, self.loss, self.optimizer, self.summary], feed_dict={self.x: x, self.lr: lr, self.phase: self.is_train})
+    def partial_train(self, x, lr, sess, writer, record=True, beta=1.0):
+        mu_z, logsd_z, sd_z, loss, _, summary = sess.run([self.mu_z, self.logsd_z, self.sd_z, self.loss, self.optimizer, self.summary], feed_dict={self.x: x, self.lr: lr, self.beta: beta})
         if record:
             writer.add_summary(summary, self.global_step.eval(sess))
         return loss
 
-    def set_phase(self, phase):
-        if phase == 'TRAIN':
-            self.is_train = True
-        else:
-            self.is_train = False
+    def generate_sample(self, sess):
+        x = sess.run(self.x_hat)
+        return x
