@@ -94,27 +94,23 @@ def upsample_map(x, scale=2, method=tf.image.ResizeMethod.BILINEAR):
     return tf.image.resize_images(x, new_shape, method)
 
 
-def deconv_block(name, x, num_layer, output_channel, shortcut=False, reg=None):
-    input_channel = int(x.get_shape()[-1])
-    w = dict()
-    b = dict()
+def deconv_block(name, x, phase, output_channel, kernel_size, upsample=False, shortcut=False, reg=None, activation_fn=None):
+    input_shape = x.get_shape()
+    input_channel = input_shape[-1]
     with tf.variable_scope(name + '_w'):
-        w['transform'] = tf.get_variable('w', [1, 1, input_channel, output_channel], tf.float32, conv_w_init, reg)
-        b['transform'] = tf.get_variable('b', [output_channel], tf.float32, conv_b_init)
-        for i in range(num_layer):
-            with tf.variable_scope('layer' + str(i)):
-                w['layer'+str(i)] = tf.get_variable('w', [3, 3, output_channel, output_channel], tf.float32, conv_w_init, reg)
-                b['layer'+str(i)] = tf.get_variable('b', [output_channel], tf.float32, conv_b_init)
+        w = tf.get_variable('w', [kernel_size, kernel_size, input_channel, output_channel], tf.float32, conv_w_init, reg)
+        b = tf.get_variable('b', [output_channel], tf.float32, conv_b_init, reg)
+        if shortcut == True and activation_fn is not None:
+            w_shortcut = tf.get_variable('w_shortcut', [1, 1, input_channel, output_channel], tf.float32, conv_w_init, reg)
     with tf.name_scope(name):
-        upsample = upsample_map(x)
-        x_transform = tf.nn.bias_add(tf.nn.conv2d(x, w['transform'], [1, 1, 1, 1], 'SAME'), b['transform'], name='transform')
-        for i in range(num_layer):
-            name = 'layer' + str(i)
-            with tf.name_scope(name):
-                addition = tf.nn.bias_add(tf.nn.conv2d(x_transform, w[name], [1, 1, 1, 1], 'SAME'), b[name], name=name)
-                addition_relu = tf.nn.relu(addition, name=name + '_relu')
-                if shortcut:
-                    x_transform = tf.add(addition_relu, x_transform, name + '_res')
-                else:
-                    x_transform = addition_relu
-    return x_transform
+        output = tf.nn.bias_add(tf.nn.conv2d(x, w, [1, 1, 1, 1], 'SAME'), b, name='conv') 
+        output = layers.batch_norm(output, scale=True, is_training=phase)
+        if activation_fn is not None:
+            output = activation_fn(output)
+        if shortcut == True and activation_fn is not None:
+            x_transform = tf.nn.conv2d(x, w_shortcut, [1, 1, 1, 1], 'SAME')
+            x_transform = layers.batch_norm(x_transform, scale=True, is_training=phase)
+            output = tf.add(output, x_transform, 'conv_res')
+        if upsample == True:
+            output = upsample_map(output)
+    return output

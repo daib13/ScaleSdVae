@@ -1,5 +1,5 @@
 from encoder import encoder_googlenet
-from decoder import decoder
+from decoder import decoder, decoder_simple1
 import tensorflow as tf
 from tensorflow.contrib import layers
 
@@ -25,7 +25,7 @@ def calc_kl_loss(name, mu_z, logsd_z, sd_z):
 
 
 class VaeNet:
-    def __init__(self, variational=True, latent_dim=256, shortcut=False, weight_decay=0.00001, init_log_gamma=0.0, log_gamma_trainable=True, batch_size=32, is_train=True):
+    def __init__(self, variational=True, latent_dim=256, shortcut=False, weight_decay=0.00001, init_log_gamma=0.0, log_gamma_trainable=True, is_train=True, layer_per_scale=2, log_gamma_decay=0.0):
         self.variational = variational
         self.latent_dim = latent_dim
         self.shortcut = shortcut
@@ -35,9 +35,11 @@ class VaeNet:
         else:
             self.reg = None
         self.is_train = is_train
+        self.layer_per_scale = layer_per_scale
+        self.log_gamma_decay = log_gamma_decay
 
         with tf.name_scope('input'):
-            self.x = tf.placeholder(tf.float32, [batch_size, 128, 128, 3], 'x')
+            self.x = tf.placeholder(tf.float32, [None, 128, 128, 3], 'x')
             self.batch_size = tf.cast(tf.shape(self.x, out_type=tf.int32)[0], tf.float32, 'batch_size')
             self.phase = tf.placeholder(tf.bool, [], 'phase')
         self.mu_z, self.logsd_z, self.sd_z = encoder_googlenet('encoder', self.x, self.phase, latent_dim, self.reg)
@@ -45,7 +47,8 @@ class VaeNet:
             self.z = gaussian_sample('sample', self.mu_z, self.sd_z)
         else:
             self.z = self.mu_z
-        self.x_hat = decoder('decoder', self.z, self.phase, self.shortcut, self.reg)
+#        self.x_hat = decoder('decoder', self.z, self.phase, self.shortcut, self.reg, self.layer_per_scale)
+        self.x_hat = decoder_simple1('decoder', self.z, self.phase, self.shortcut, self.reg)
         with tf.name_scope('gamma'):
             self.log_gamma = tf.get_variable('log_gamma', [], tf.float32, tf.constant_initializer(init_log_gamma), trainable=log_gamma_trainable)
             self.gamma = tf.exp(self.log_gamma, 'gamma')
@@ -56,7 +59,8 @@ class VaeNet:
             self.loss = self.gen_loss
             if self.variational:
                 self.kl_loss = tf.divide(tf.reduce_sum(calc_kl_loss('kl_loss', self.mu_z, self.logsd_z, self.sd_z)), self.batch_size, 'kl_loss_norm')
-                self.loss = tf.add(self.kl_loss, self.loss, 'loss')
+                self.loss = tf.add(self.kl_loss, self.loss)
+                self.loss = tf.add(self.log_gamma * self.log_gamma_decay, self.loss, 'loss')
         with tf.name_scope('summary'):
             tf.summary.scalar('total_loss', self.loss)
             tf.summary.scalar('gen_loss', self.gen_loss)

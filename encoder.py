@@ -47,15 +47,14 @@ def encoder_googlenet(name, x, phase, latent_dim, reg=None):
             inception4_c = inception('inception4_c', inception4_b, phase, 128, 64, 128, 256, 24, 64, reg)
             inception4_d = inception('inception4_d', inception4_c, phase, 112, 64, 144, 288, 32, 64, reg)
             inception4_e = inception('inception4_e', inception4_d, phase, 256, 128, 160, 512, 32, 128, reg)
-            pool4 = tf.nn.max_pool(inception4_e, [1, 8, 8, 1], [1, 8, 8, 1], 'SAME', name='pool4')
-            pool4_flatten = tf.reshape(pool4, [tf.shape(pool4, out_type=tf.int32)[0], -1], 'pool4_flatten')
-#
-#        # block 5 (inception 5)
-#        with tf.name_scope('block5'):
-#            inception5_a = inception('inception5_a', pool4, 256, 128, 160, 320, 32, 128, reg)
-#            inception5_b = inception('inception5_b', inception5_a, 384, 128, 192, 384, 48, 128, reg)
-#            pool5 = tf.nn.avg_pool(inception5_b, [1, 3, 3, 1], [1, 4, 4, 1], 'SAME', name='pool5')
-#            pool5_flatten = tf.reshape(pool5, [tf.shape(pool5, out_type=tf.int32)[0], -1], 'pool5_flatten')
+            pool4 = tf.nn.max_pool(inception4_e, [1, 3, 3, 1], [1, 2, 2, 1], 'SAME', name='pool4')
+
+        # block 5 (inception 5)
+        with tf.name_scope('block5'):
+            inception5_a = inception('inception5_a', pool4, phase, 256, 128, 160, 320, 32, 128, reg)
+            inception5_b = inception('inception5_b', inception5_a, phase, 384, 128, 192, 384, 48, 128, reg)
+            pool5 = tf.nn.avg_pool(inception5_b, [1, 4, 4, 1], [1, 4, 4, 1], 'SAME', name='pool5')
+            pool5_flatten = tf.reshape(pool5, [tf.shape(pool5, out_type=tf.int32)[0], -1], 'pool5_flatten')
 
         # fc
         with tf.variable_scope('en_fc_w'):
@@ -64,7 +63,7 @@ def encoder_googlenet(name, x, phase, latent_dim, reg=None):
             fc7_w = tf.get_variable('w2', [512, 256], tf.float32, conv_w_init, reg)
             fc7_b = tf.get_variable('b2', [256], tf.float32, tf.zeros_initializer())
         with tf.name_scope('fc'):
-            fc6 = tf.nn.bias_add(tf.matmul(pool4_flatten, fc6_w), fc6_b, name='fc6')
+            fc6 = tf.nn.bias_add(tf.matmul(pool5_flatten, fc6_w), fc6_b, name='fc6')
             fc6_relu = tf.nn.relu(fc6, 'fc6_relu')
             fc7 = tf.nn.bias_add(tf.matmul(fc6_relu, fc7_w), fc7_b, name='fc7')
             fc7_relu = tf.nn.relu(fc7, 'fc7_relu')

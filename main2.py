@@ -7,7 +7,7 @@ import sys
 from config import data_folder
 
 
-def train_model(model, sess, writer, x, num_epoch, lr, batch_size=32):
+def train_model(model, sess, writer, x, num_epoch, lr, batch_size=32, decay=False):
     iteration_per_epoch = int(math.floor(x.shape[0] / batch_size))
     total_iter = 0
     for epoch in range(num_epoch):
@@ -19,11 +19,13 @@ def train_model(model, sess, writer, x, num_epoch, lr, batch_size=32):
             batch_loss = model.partial_train(x_batch, lr, sess, writer, total_iter % 10 == 0)
             total_loss += batch_loss
             print('Iter = {0}, loss = {1}.'.format(total_iter, batch_loss))
+        if decay and (epoch % 20 == 19):
+            lr *= 0.1
         total_loss /= iteration_per_epoch
         print('Epoch = {0}, lr = {1}, loss = {2}.'.format(epoch, lr, total_loss))
 
 
-def main(data_set, model_type, latent_dim, shortcut='True', num_epoch=100, log_gamma_decay=0.0):
+def main(data_set, model_type, shortcut, num_epoch=100, lr=0.002, init_log_gamma=-4.0, decay=False):
     data_dir = data_folder(data_set)
     if data_dir == '':
         print('No such data set named {0}.'.format(data_set))
@@ -46,7 +48,7 @@ def main(data_set, model_type, latent_dim, shortcut='True', num_epoch=100, log_g
         print('Shortcut setting unclear: {0}.'.format(shortcut))
         return
 
-    model = VaeNet(variational, latent_dim=latent_dim, shortcut=resnet, init_log_gamma=-4.0, log_gamma_decay=log_gamma_decay)
+    model = VaeNet(variational, shortcut=resnet, init_log_gamma=init_log_gamma, log_gamma_trainable=True)
     
     if not os.path.exists('model'):
         os.mkdir('model')
@@ -55,7 +57,7 @@ def main(data_set, model_type, latent_dim, shortcut='True', num_epoch=100, log_g
         saver = tf.train.Saver()
         writer = tf.summary.FileWriter('graph', sess.graph)
 
-        train_model(model, sess, writer, x, num_epoch, 0.002, 32)
+        train_model(model, sess, writer, x, num_epoch, lr, 32, decay)
         saver.save(sess, 'model/model.ckpt')
 
 
@@ -63,7 +65,8 @@ if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = sys.argv[6]
     data_set = sys.argv[1]
     model_type = sys.argv[2]
-    latent_dim = int(sys.argv[3])
-    log_gamma_decay = float(sys.argv[4])
-    shortcut = sys.argv[5]
-    main(data_set, model_type, latent_dim, shortcut, num_epoch=200, log_gamma_decay=log_gamma_decay)
+    shortcut = sys.argv[3]
+    num_epoch = int(sys.argv[4])
+    lr = 0.002
+    init_log_gamma = float(sys.argv[5])
+    main(data_set, model_type, shortcut, num_epoch, lr, init_log_gamma, True)

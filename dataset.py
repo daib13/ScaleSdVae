@@ -72,14 +72,20 @@ def shuffle_data(x, y=None):
 
 
 def load_img_from_folder(folder_name, height=128, width=128, channel=3):
-    onlyfiles = [join(folder_name, f) for f in listdir(folder_name) if isfile(join(folder_name, f))]
     x = []
-    for i in range(len(onlyfiles)):
-        img = mpimg.imread(onlyfiles[i])
-        assert len(img.shape) == 3
-        assert img.shape[0] == height
-        assert img.shape[1] == width
-        assert img.shape[2] == channel
-        x.append(np.reshape(img, [1, height, width, channel]))
+    for dirpath, dirnames, files in os.walk(folder_name):
+        for name in files:
+            if name.lower().endswith('.jpg'):
+                img_file = os.path.join(dirpath, name)
+                img = mpimg.imread(img_file)
+                assert len(img.shape) == 3 or len(img.shape) == 2
+                if len(img.shape) == 2:
+                    img = np.tile(np.reshape(img, [height, width, 1]), [1, 1, 3])
+                assert img.shape[0] == height
+                assert img.shape[1] == width
+                assert img.shape[2] == channel
+                x.append(np.reshape(img, [1, height, width, channel]))
+                if len(x) % 5000 == 4999:
+                    print('loading image {0}...'.format(len(x) + 1))
     x = np.concatenate(x, 0) / 255.0
     return x
