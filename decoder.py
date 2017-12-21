@@ -83,7 +83,7 @@ def decoder(name, z, phase, shortcut=False, reg=None, layer_per_scale=2):
     return x_hat
 
 
-def decoder_simple1(name, z, phase, shortcut=False, reg=None):
+def decoder_simple1(name, z, phase, shortcut=False, reg=None, output_fn=None):
     latent_dim = int(z.get_shape()[-1])
     with tf.name_scope(name):
         # fc
@@ -124,5 +124,5 @@ def decoder_simple1(name, z, phase, shortcut=False, reg=None):
 
         # feature128
         feature = deconv_block('feature128_1', feature, phase, 64, 5, True, shortcut, reg, tf.nn.relu)
-        feature = deconv_block('feature128_2', feature, phase, 3, 5, False, shortcut, reg, tf.nn.sigmoid)
+        feature = deconv_block('feature128_2', feature, phase, 3, 5, False, False, reg, output_fn)
     return feature

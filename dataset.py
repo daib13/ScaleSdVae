@@ -71,8 +71,9 @@ def shuffle_data(x, y=None):
         return x
 
 
-def load_img_from_folder(folder_name, height=128, width=128, channel=3):
+def load_img_from_folder(folder_name, height=128, width=128, channel=3, num_img=-1):
     x = []
+    finish = False
     for dirpath, dirnames, files in os.walk(folder_name):
         for name in files:
             if name.lower().endswith('.jpg'):
@@ -85,7 +86,13 @@ def load_img_from_folder(folder_name, height=128, width=128, channel=3):
                 assert img.shape[1] == width
                 assert img.shape[2] == channel
                 x.append(np.reshape(img, [1, height, width, channel]))
-                if len(x) % 5000 == 4999:
-                    print('loading image {0}...'.format(len(x) + 1))
+                if len(x) % 5000 == 0:
+                    print('loading image {0}...'.format(len(x)))
+                if num_img > 0 and len(x) >= num_img:
+                    finish = True
+                    print('Finish loading {0} images.'.format(num_img))
+                    break
+        if finish:
+            break
     x = np.concatenate(x, 0) / 255.0
     return x

@@ -3,7 +3,7 @@ from tensorflow.contrib import layers
 from inception import inception, conv_w_init, conv_b_init
 
 
-def encoder_googlenet(name, x, phase, latent_dim, reg=None):
+def encoder_googlenet(name, x, phase, latent_dim, reg=None, log_scale=None):
     input_channel = x.get_shape()[-1]
 
     with tf.name_scope(name):
@@ -76,7 +76,10 @@ def encoder_googlenet(name, x, phase, latent_dim, reg=None):
             logsd_b = tf.get_variable('logsd_b', [latent_dim], tf.float32, tf.constant_initializer(0.0))
         with tf.name_scope('latent'):
             mu = tf.nn.bias_add(tf.matmul(fc7_relu, mu_w), mu_b, name='mu')
-            logsd = tf.nn.bias_add(tf.matmul(fc7_relu, logsd_w), logsd_b, name='logsd')
-            sd = tf.exp(logsd)
+            scale_logsd = tf.nn.bias_add(tf.matmul(fc7_relu, logsd_w), logsd_b, name='scale_logsd')
+            if log_scale is None:
+                sd = tf.exp(scale_logsd)
+            else:
+                sd = tf.exp(scale_logsd + log_scale / 2.0)
     
-    return mu, logsd, sd
+    return mu, scale_logsd, sd
