@@ -36,7 +36,7 @@ def generate_sample(model, sess, num_sample):
     return x
 
 
-def main(data_set, model_type='VAE', latent_dim=256, shortcut='True', strategy='normal', num_epoch=100, log_gamma_decay=0.0, output_fn_name='sigmoid', init_log_gamma=-4.0):
+def main(data_set, model_type='VAE', latent_dim=256, shortcut='True', strategy='normal', num_epoch=100, log_gamma_decay=0.0, output_fn_name='sigmoid', init_log_gamma=-4.0, log_gamma_trainable=False):
     data_dir = data_folder(data_set)
     if data_dir == '':
         print('No such data set named {0}.'.format(data_set))
@@ -76,11 +76,12 @@ def main(data_set, model_type='VAE', latent_dim=256, shortcut='True', strategy='
         output_fn = tf.nn.sigmoid
     elif output_fn_name == 'none':
         output_fn = None
+        x = (x*2.0 - 1.0)
     else:
         print('No output function named {0}.'.format(output_fn_name))
         return
 
-    model = VaeNet(variational, latent_dim=latent_dim, shortcut=resnet, init_log_gamma=init_log_gamma, scale_std=scale_std, log_gamma_trainable=False, output_fn=output_fn)
+    model = VaeNet(variational, latent_dim=latent_dim, shortcut=resnet, init_log_gamma=init_log_gamma, scale_std=scale_std, log_gamma_trainable=log_gamma_trainable, output_fn=output_fn)
     
     if not os.path.exists('model'):
         os.mkdir('model')
@@ -93,11 +94,13 @@ def main(data_set, model_type='VAE', latent_dim=256, shortcut='True', strategy='
         saver.save(sess, 'model/model.ckpt')
 
     tf.reset_default_graph()
-    model = VaeNet(variational, latent_dim=latent_dim, shortcut=resnet, is_train=False, scale_std=scale_std, log_gamma_trainable=False, output_fn=output_fn)
+    model = VaeNet(variational, latent_dim=latent_dim, shortcut=resnet, is_train=False, scale_std=scale_std, log_gamma_trainable=log_gamma_trainable, output_fn=output_fn)
     with tf.Session() as sess:
         saver = tf.train.Saver()
         saver.restore(sess, 'model/model.ckpt')
         samples = generate_sample(model, sess, 500)
+        if output_fn_name == 'none':
+            samples = (samples + 1.0) / 2.0
         if not os.path.exists('samples'):
             os.mkdir('samples')
         for i in range(500):
@@ -108,7 +111,11 @@ if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = sys.argv[6]
     data_set = sys.argv[1]
     shortcut = sys.argv[2]
-    strategy = sys.argv[3]
-    output_fn = sys.argv[4]
+    strategy = sys.argv[4]
+    output_fn = sys.argv[3]
     init_log_gamma = float(sys.argv[5])
-    main(data_set, shortcut=shortcut, strategy=strategy, num_epoch=300, output_fn_name=output_fn, init_log_gamma=init_log_gamma)
+    if init_log_gamma > -1:
+        log_gamma_trainable = True
+    else:
+        log_gamma_trainable = False
+    main(data_set, shortcut=shortcut, strategy=strategy, num_epoch=300, output_fn_name=output_fn, init_log_gamma=init_log_gamma, log_gamma_trainable=log_gamma_trainable)
