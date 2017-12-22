@@ -93,7 +93,7 @@ def main(data_set, model_type='VAE', latent_dim=256, shortcut='True', strategy='
         saver.save(sess, 'model/model.ckpt')
 
     tf.reset_default_graph()
-    model = VaeNet(variational, latent_dim=latent_dim, shortcut=resnet, is_train=False, scale_std=scale_std, output_fn=output_fn)
+    model = VaeNet(variational, latent_dim=latent_dim, shortcut=resnet, is_train=False, scale_std=scale_std, log_gamma_trainable=False, output_fn=output_fn)
     with tf.Session() as sess:
         saver = tf.train.Saver()
         saver.restore(sess, 'model/model.ckpt')
