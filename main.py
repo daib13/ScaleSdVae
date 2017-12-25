@@ -114,8 +114,5 @@ if __name__ == '__main__':
     strategy = sys.argv[4]
     output_fn = sys.argv[3]
     init_log_gamma = float(sys.argv[5])
-    if init_log_gamma > -1:
-        log_gamma_trainable = True
-    else:
-        log_gamma_trainable = False
+    log_gamma_trainable = True
     main(data_set, shortcut=shortcut, strategy=strategy, num_epoch=300, output_fn_name=output_fn, init_log_gamma=init_log_gamma, log_gamma_trainable=log_gamma_trainable)
