@@ -81,7 +81,7 @@ def main(data_set, model_type='VAE', latent_dim=256, shortcut='True', strategy='
         print('No output function named {0}.'.format(output_fn_name))
         return
 
-    model = VaeNet(variational, latent_dim=latent_dim, shortcut=resnet, init_log_gamma=init_log_gamma, scale_std=scale_std, log_gamma_trainable=log_gamma_trainable, output_fn=output_fn)
+    model = VaeNet(variational, latent_dim=latent_dim, shortcut=resnet, init_log_gamma=init_log_gamma, scale_std=scale_std, log_gamma_trainable=log_gamma_trainable, log_gamma_decay=log_gamma_decay, output_fn=output_fn)
     
     if not os.path.exists('model'):
         os.mkdir('model')
@@ -112,7 +112,7 @@ if __name__ == '__main__':
     data_set = sys.argv[1]
     shortcut = sys.argv[2]
     strategy = sys.argv[4]
-    output_fn = sys.argv[3]
+    log_gamma_decay = float(sys.argv[3])
     init_log_gamma = float(sys.argv[5])
     log_gamma_trainable = True
-    main(data_set, shortcut=shortcut, strategy=strategy, num_epoch=300, output_fn_name=output_fn, init_log_gamma=init_log_gamma, log_gamma_trainable=log_gamma_trainable)
+    main(data_set, shortcut=shortcut, strategy=strategy, num_epoch=50, log_gamma_decay=log_gamma_decay, init_log_gamma=init_log_gamma, log_gamma_trainable=log_gamma_trainable)

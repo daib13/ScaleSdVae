@@ -45,7 +45,7 @@ class VaeNet:
             self.log_gamma = tf.get_variable('log_gamma', [], tf.float32, tf.constant_initializer(init_log_gamma), trainable=log_gamma_trainable)
             self.gamma = tf.exp(self.log_gamma, 'gamma')
             if scale_std:
-                self.var_log_scale = self.log_gamma
+                self.var_log_scale = tf.stop_gradient(self.log_gamma)
             else:
                 self.var_log_scale = tf.constant(0.0, tf.float32, [], name='var_log_scale')
 
