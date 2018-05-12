@@ -83,12 +83,12 @@ def decoder(name, z, phase, shortcut=False, reg=None, layer_per_scale=2):
     return x_hat
 
 
-def decoder_simple1(name, z, phase, shortcut=False, reg=None, output_fn=None):
+def decoder_simple1(name, z, phase, fc1_w, shortcut=False, reg=None, output_fn=None):
     latent_dim = int(z.get_shape()[-1])
     with tf.name_scope(name):
         # fc
         with tf.variable_scope('de_fc_w'):
-            fc1_w = tf.get_variable('w1', [latent_dim, 512], tf.float32, conv_w_init, reg)
+#            fc1_w = tf.get_variable('w1', [latent_dim, 512], tf.float32, conv_w_init, reg)
             fc1_b = tf.get_variable('b1', [512], tf.float32, tf.zeros_initializer())            
             fc2_w = tf.get_variable('w2', [512, 4096], tf.float32, conv_w_init, reg)
             fc2_b = tf.get_variable('b2', [4096], tf.float32, tf.zeros_initializer())

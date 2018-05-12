@@ -1,5 +1,5 @@
 from encoder import encoder_googlenet
-from decoder import decoder, decoder_simple1
+from decoder import decoder, decoder_simple1, conv_w_init
 import tensorflow as tf
 from tensorflow.contrib import layers
 
@@ -44,12 +44,22 @@ class VaeNet:
         with tf.name_scope('gamma'):
             self.log_gamma = tf.get_variable('log_gamma', [], tf.float32, tf.constant_initializer(init_log_gamma), trainable=log_gamma_trainable)
             self.gamma = tf.exp(self.log_gamma, 'gamma')
-            if scale_std:
-                self.var_log_scale = tf.stop_gradient(self.log_gamma)
-            else:
-                self.var_log_scale = tf.constant(0.0, tf.float32, [], name='var_log_scale')
+#            if scale_std:
+#                self.var_log_scale = tf.stop_gradient(self.log_gamma)
+#            else:
+#                self.var_log_scale = tf.constant(0.0, tf.float32, [], name='var_log_scale')
+        self.var_log_scale = tf.constant(0.0, tf.float32, [], name='var_log_scale')
+        fc1_w = tf.get_variable('wo', [self.latent_dim, 512], tf.float32, conv_w_init, self.reg)
 
         self.mu_z, self.scale_logsd_z, self.sd_z = encoder_googlenet('encoder', self.x, self.is_train, latent_dim, self.reg, self.var_log_scale)
+
+        if scale_std:
+            w_square = tf.reduce_sum(tf.square(fc1_w), -1)
+            self.sd_z = tf.tile(tf.reshape(self.gamma / (self.gamma + w_square), [1, -1]), [tf.cast(self.batch_size, tf.int32), 1])
+            self.scale_logsd_z = tf.log(self.sd_z)
+            self.sd_z = tf.stop_gradient(self.sd_z)
+            self.scale_logsd_z = tf.stop_gradient(self.scale_logsd_z)
+
         if self.variational:
             self.z = gaussian_sample('sample', self.mu_z, self.sd_z)
             if is_train == True:
@@ -60,7 +70,7 @@ class VaeNet:
         else:
             input_to_decoder = self.mu_z
 
-        self.x_hat = decoder_simple1('decoder', input_to_decoder, True, self.shortcut, self.reg, output_fn)
+        self.x_hat = decoder_simple1('decoder', input_to_decoder, True, fc1_w, self.shortcut, self.reg, output_fn)
 
         with tf.name_scope('loss'):
             l2_distance, gen_loss = calc_gen_loss('gen_loss', self.x, self.x_hat, self.gamma, self.log_gamma)
@@ -71,7 +81,8 @@ class VaeNet:
             if self.variational:
                 self.kl_loss = tf.divide(tf.reduce_sum(calc_kl_loss('kl_loss', self.mu_z, self.scale_logsd_z, self.var_log_scale, self.sd_z)), self.batch_size, 'kl_loss_norm')
                 self.loss = tf.add(self.beta * self.kl_loss, self.loss)
-                self.loss = tf.add(self.log_gamma * self.log_gamma_decay, self.loss, 'loss')
+#                self.loss = tf.add(self.log_gamma * self.log_gamma_decay, self.loss, 'loss')
+                self.loss = tf.add(-self.log_gamma_decay / self.gamma, self.loss, 'loss')
         with tf.name_scope('summary'):
             tf.summary.scalar('total_loss', self.loss)
             tf.summary.scalar('gen_loss', self.gen_loss)

@@ -115,4 +115,4 @@ if __name__ == '__main__':
     log_gamma_decay = float(sys.argv[3])
     init_log_gamma = float(sys.argv[5])
     log_gamma_trainable = True
-    main(data_set, shortcut=shortcut, strategy=strategy, num_epoch=50, log_gamma_decay=log_gamma_decay, init_log_gamma=init_log_gamma, log_gamma_trainable=log_gamma_trainable)
+    main(data_set, shortcut=shortcut, strategy=strategy, num_epoch=300, log_gamma_decay=log_gamma_decay, init_log_gamma=init_log_gamma, log_gamma_trainable=log_gamma_trainable)
