@@ -13,7 +13,8 @@ def shuffle_data(x, y=None):
 
 
 def load_mnist_data(flag='training'):
-    mndata = MNIST('D:/v-bindai/Projects/VAEDifficulty/data/MNIST')
+#    mndata = MNIST('D:/v-bindai/Projects/VAEDifficulty/data/MNIST')
+    mndata = MNIST('./data/MNIST')
     try:
         if flag == 'training':
             images, labels = mndata.load_training()
